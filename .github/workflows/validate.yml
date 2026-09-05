@@ -1,0 +1,19 @@
+name: Validate Bridge Lab
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate required app markers
+        run: node tests/validate.mjs
+      - name: Check inline JavaScript syntax
+        run: node --check /tmp/img-bridge-inline.js
