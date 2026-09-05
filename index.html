@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>IMG Delivery Bridge Lab</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#17212b;background:#f3f5f7}*{box-sizing:border-box}body{margin:0}header{background:#185987;color:white;padding:16px}main{max-width:900px;margin:auto;padding:14px}.card{background:white;border:1px solid #d9e0e5;border-radius:14px;padding:14px;margin-bottom:12px}h1{font-size:20px;margin:0 0 4px}h2{font-size:17px;margin:0 0 10px}.small{font-size:12px;color:#68737d;line-height:1.45}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.item{border:1px solid #d9e0e5;border-radius:10px;padding:10px}.row{display:flex;gap:8px;flex-wrap:wrap}.btn{border:0;border-radius:10px;padding:11px 14px;font-weight:700;cursor:pointer}.primary{background:#185987;color:white}.secondary{background:#e7edf1}.ok{color:#176b3a;font-weight:700}.bad{color:#9a2020;font-weight:700}.wait{color:#8a5a00;font-weight:700}pre{white-space:pre-wrap;word-break:break-word;background:#10151a;color:#dce8ef;padding:12px;border-radius:10px;max-height:320px;overflow:auto}input[type=file]{width:100%;padding:10px;border:1px solid #c5cdd3;border-radius:10px}@media(max-width:650px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><h1>IMG Delivery Bridge Lab</h1><div>PC ↔ iPhone compatibility probe</div></header>
+<main>
+<div class="card"><h2>1. Device capability check</h2><div class="small">Run this on the County PC and County iPhone. Use fake data only.</div><div id="caps" class="grid" style="margin-top:10px"></div></div>
+<div class="card"><h2>2. Live browser tests</h2><div class="row"><button class="btn primary" id="runNetwork">Run network probes</button><button class="btn secondary" id="testShare">Test Share Sheet</button></div><div id="network" class="grid" style="margin-top:10px"></div></div>
+<div class="card"><h2>3. Camera / photo input</h2><input id="photo" type="file" accept="image/*" capture="environment"><div id="photoResult" class="small" style="margin-top:8px">No photo selected.</div></div>
+<div class="card"><h2>4. Diagnostic report</h2><div class="row"><button class="btn primary" id="copyReport">Copy Report</button><button class="btn secondary" id="downloadReport">Download Report</button></div><pre id="report"></pre></div>
+</main>
+<script>
+const results={generatedAt:new Date().toISOString(),location:location.href,userAgent:navigator.userAgent,capabilities:{},network:{}};
+const $=id=>document.getElementById(id);
+function status(v){return v===true?'<span class="ok">PASS</span>':v===false?'<span class="bad">FAIL</span>':'<span class="wait">'+String(v)+'</span>'}
+function addCap(name,value,note=''){results.capabilities[name]=value;$('caps').insertAdjacentHTML('beforeend',`<div class="item"><b>${name}</b><br>${status(value)}${note?`<div class="small">${note}</div>`:''}</div>`)}
+function refreshReport(){$('report').textContent=JSON.stringify(results,null,2)}
+addCap('HTTPS / secure context',window.isSecureContext,'Camera and modern sharing work best from HTTPS.');
+let storage=false;try{localStorage.setItem('img_bridge_test','ok');storage=localStorage.getItem('img_bridge_test')==='ok';localStorage.removeItem('img_bridge_test')}catch(e){}addCap('Local browser storage',storage);
+addCap('Web Share API',typeof navigator.share==='function');
+addCap('File object support',typeof File==='function'&&typeof Blob==='function');
+addCap('Camera capture input',('capture' in document.createElement('input')));
+addCap('Clipboard API',!!navigator.clipboard);
+refreshReport();
+
+const probes=[
+ {name:'GitHub',url:'https://github.com/favicon.ico'},
+ {name:'GitHub Pages',url:'https://pages.github.com/favicon.ico'},
+ {name:'Supabase',url:'https://supabase.com/favicon.ico'},
+ {name:'Firebase',url:'https://firebase.google.com/favicon.ico'},
+ {name:'Cloudflare',url:'https://www.cloudflare.com/favicon.ico'},
+ {name:'Netlify',url:'https://www.netlify.com/favicon.ico'}
+];
+function imageProbe(p){return new Promise(resolve=>{const img=new Image();const done=v=>{img.onload=img.onerror=null;resolve(v)};const t=setTimeout(()=>done(false),8000);img.onload=()=>{clearTimeout(t);done(true)};img.onerror=()=>{clearTimeout(t);done(false)};img.src=p.url+'?t='+Date.now()})}
+$('runNetwork').onclick=async()=>{$('network').innerHTML='';for(const p of probes){$('network').insertAdjacentHTML('beforeend',`<div class="item" id="p-${p.name.replace(/\W/g,'')}"><b>${p.name}</b><br><span class="wait">Testing…</span></div>`)}for(const p of probes){const ok=await imageProbe(p);results.network[p.name]=ok;const el=document.getElementById('p-'+p.name.replace(/\W/g,''));el.innerHTML=`<b>${p.name}</b><br>${status(ok)}`;refreshReport()}};
+$('testShare').onclick=async()=>{try{if(!navigator.share)throw new Error('Web Share API unavailable');await navigator.share({title:'IMG Delivery Bridge Test',text:'IMG Delivery bridge share test'});results.capabilities['Share Sheet live test']=true}catch(e){results.capabilities['Share Sheet live test']=e&&e.name==='AbortError'?'USER_CANCELLED':false}refreshReport()};
+$('photo').onchange=e=>{const f=e.target.files&&e.target.files[0];const ok=!!f;results.capabilities['Photo selection live test']=ok;$('photoResult').innerHTML=ok?`<span class="ok">PASS</span> ${f.name} (${Math.round(f.size/1024)} KB)`:'No photo selected.';refreshReport()};
+$('copyReport').onclick=async()=>{const t=$('report').textContent;try{await navigator.clipboard.writeText(t);alert('Report copied.')}catch(e){prompt('Copy this report:',t)}};
+$('downloadReport').onclick=()=>{const b=new Blob([$('report').textContent],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='img-bridge-report.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};
+</script>
+</body>
+</html>
