@@ -15,5 +15,7 @@ jobs:
           node-version: '22'
       - name: Validate required app markers
         run: node tests/validate.mjs
-      - name: Check inline JavaScript syntax
-        run: node --check /tmp/img-bridge-inline.js
+      - name: Check frontend JavaScript syntax
+        run: node --check /tmp/img-delivery-inline.js
+      - name: Check Worker JavaScript syntax
+        run: node --check worker/src/index.js
